@@ -6,6 +6,8 @@
 
 namespace socket_publisher {
 
+const size_t SEND_SIZE = 1 << 10;
+
 publisher::publisher(const YAML::Node& yaml_node,
                      const std::shared_ptr<stella_vslam::system>& system,
                      const std::shared_ptr<stella_vslam::publish::frame_publisher>& frame_publisher,
@@ -27,15 +29,13 @@ void publisher::run() {
     is_paused_ = false;
 
     const auto serialized_reset_signal = data_serializer::serialized_reset_signal_;
-    client_->emit("map_publish", serialized_reset_signal);
+    emit_map(serialized_reset_signal);
 
     while (true) {
         const auto t0 = std::chrono::system_clock::now();
 
         const auto serialized_map_data = data_serializer_->serialize_map_diff();
-        if (!serialized_map_data.empty()) {
-            client_->emit("map_publish", serialized_map_data);
-        }
+        emit_map(serialized_map_data);
 
         const auto serialized_frame_data = data_serializer_->serialize_latest_frame(image_quality_);
         if (!serialized_frame_data.empty()) {
@@ -63,6 +63,17 @@ void publisher::run() {
 
     system_->request_terminate();
     terminate();
+}
+
+void publisher::emit_map(const std::string& message) {
+    if (!message.empty()) {
+        client_->emit("map_publish", "START_TRANSMISSION");
+        for (size_t send_num = 0; send_num < message.size(); send_num += SEND_SIZE)
+        {
+            client_->emit("map_publish", message.substr(send_num, SEND_SIZE));
+        }
+        client_->emit("map_publish", "FINISH_TRANSMISSION");
+    }
 }
 
 void publisher::callback(const std::string& message) {

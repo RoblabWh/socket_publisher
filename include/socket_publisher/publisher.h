@@ -45,6 +45,7 @@ private:
     std::unique_ptr<socket_client> client_;
     std::unique_ptr<data_serializer> data_serializer_;
 
+    void emit_map(const std::string& message);
     void callback(const std::string& message);
 
     /* thread controls */
