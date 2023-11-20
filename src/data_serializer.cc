@@ -2,6 +2,7 @@
 
 #include "stella_vslam/data/keyframe.h"
 #include "stella_vslam/data/landmark.h"
+#include "stella_vslam/data/dense_point.h"
 #include "stella_vslam/publish/frame_publisher.h"
 #include "stella_vslam/publish/map_publisher.h"
 
@@ -18,9 +19,10 @@ std::string data_serializer::serialized_reset_signal_{};
 
 data_serializer::data_serializer(const std::shared_ptr<stella_vslam::publish::frame_publisher>& frame_publisher,
                                  const std::shared_ptr<stella_vslam::publish::map_publisher>& map_publisher,
-                                 bool publish_points)
-    : frame_publisher_(frame_publisher), map_publisher_(map_publisher), publish_points_(publish_points),
-      keyframe_hash_map_(new std::unordered_map<unsigned int, double>), point_hash_map_(new std::unordered_map<unsigned int, double>) {
+                                 bool publish_points, bool publish_dense_points)
+    : frame_publisher_(frame_publisher), map_publisher_(map_publisher), publish_points_(publish_points), publish_dense_points_(publish_dense_points),
+      keyframe_hash_map_(new std::unordered_map<unsigned int, double>), point_hash_map_(new std::unordered_map<unsigned int, double>),
+      dense_point_hash_map_(new std::unordered_map<unsigned int, double>) {
     const auto tags = std::vector<std::string>{"RESET_ALL"};
     const auto messages = std::vector<std::string>{"reset all data"};
     data_serializer::serialized_reset_signal_ = serialize_messages(tags, messages);
@@ -54,6 +56,11 @@ std::string data_serializer::serialize_map_diff() {
         map_publisher_->get_landmarks(all_landmarks, local_landmarks);
     }
 
+    std::vector<std::shared_ptr<stella_vslam::data::dense_point>> all_dense_points;
+    if (publish_dense_points_) {
+        map_publisher_->get_dense_points(all_dense_points);
+    }
+
     const auto current_camera_pose = map_publisher_->get_current_cam_pose();
 
     const double pose_hash = get_mat_hash(current_camera_pose);
@@ -63,7 +70,7 @@ std::string data_serializer::serialize_map_diff() {
     }
     current_pose_hash_ = pose_hash;
 
-    return serialize_as_protobuf(keyframes, all_landmarks, local_landmarks, current_camera_pose);
+    return serialize_as_protobuf(keyframes, all_landmarks, local_landmarks, all_dense_points, current_camera_pose);
 }
 
 std::string data_serializer::serialize_latest_frame(const unsigned int image_quality) {
@@ -79,6 +86,7 @@ std::string data_serializer::serialize_latest_frame(const unsigned int image_qua
 std::string data_serializer::serialize_as_protobuf(const std::vector<std::shared_ptr<stella_vslam::data::keyframe>>& keyfrms,
                                                    const std::vector<std::shared_ptr<stella_vslam::data::landmark>>& all_landmarks,
                                                    const std::set<std::shared_ptr<stella_vslam::data::landmark>>& local_landmarks,
+                                                   const std::vector<std::shared_ptr<stella_vslam::data::dense_point>>& all_dense_points,
                                                    const stella_vslam::Mat44_t& current_camera_pose) {
     map_segment::map map;
     auto message = map.add_messages();
@@ -229,7 +237,52 @@ std::string data_serializer::serialize_as_protobuf(const std::vector<std::shared
         map.add_local_landmarks(landmark->id_);
     }
 
-    // 5. current camera pose registration
+    // 5 dense points registration
+    std::unordered_map<unsigned int, double> next_dense_point_hash_map;
+    for (const auto& point : all_dense_points) {
+        if (!point) {
+            continue;
+        }
+
+        const auto id = point->id_;
+        const auto pos = point->get_pos_in_world();
+        const auto zip = get_vec_hash(pos);
+
+        // point exists on next_point_zip.
+        next_dense_point_hash_map[id] = zip;
+
+        // remove point from point_zip.
+        if (dense_point_hash_map_->count(id) != 0) {
+            // point exists on next_point_zip.
+            next_dense_point_hash_map[id] = zip;
+            if (dense_point_hash_map_->at(id) == zip) {
+                dense_point_hash_map_->erase(id);
+                continue;
+            }
+            dense_point_hash_map_->erase(id);
+        }
+        const auto rgb = point->get_color_in_rgb();
+
+        // add to protocol buffers
+        auto landmark_obj = map.add_dense_points();
+        landmark_obj->set_id(id);
+        for (int i = 0; i < 3; i++) {
+            landmark_obj->add_coords(pos[i]);
+        }
+        for (int i = 0; i < 3; i++) {
+            landmark_obj->add_color(rgb[i]);
+        }
+    }
+    // removed points are remaining in "point_zips".
+    for (const auto& itr : *dense_point_hash_map_) {
+        const auto id = itr.first;
+
+        auto landmark_obj = map.add_dense_points();
+        landmark_obj->set_id(id);
+    }
+    *dense_point_hash_map_ = next_dense_point_hash_map;
+
+    // 6. current camera pose registration
     map_segment::map_Mat44 pose_obj{};
     for (int i = 0; i < 16; i++) {
         int ir = i / 4;

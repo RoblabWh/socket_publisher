@@ -16,7 +16,8 @@ publisher::publisher(const YAML::Node& yaml_node,
       client_(new socket_client(yaml_node["server_uri"].as<std::string>("http://127.0.0.1:3000"))) {
     data_serializer_ = std::unique_ptr<data_serializer>(new data_serializer(
         frame_publisher, map_publisher,
-        yaml_node["publish_points"].as<bool>(true)));
+        yaml_node["publish_points"].as<bool>(true),
+        yaml_node["publish_dense_points"].as<bool>(true)));
 
     client_->set_signal_callback(std::bind(&publisher::callback, this, std::placeholders::_1));
 }

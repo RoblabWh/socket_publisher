@@ -15,6 +15,7 @@ class config;
 namespace data {
 class keyframe;
 class landmark;
+class dense_point;
 } // namespace data
 
 namespace publish {
@@ -30,7 +31,7 @@ class data_serializer {
 public:
     data_serializer(const std::shared_ptr<stella_vslam::publish::frame_publisher>& frame_publisher,
                     const std::shared_ptr<stella_vslam::publish::map_publisher>& map_publisher,
-                    bool publish_points);
+                    bool publish_points, bool publish_dense_points);
 
     std::string serialize_messages(const std::vector<std::string>& tags, const std::vector<std::string>& messages);
 
@@ -44,8 +45,10 @@ private:
     const std::shared_ptr<stella_vslam::publish::frame_publisher> frame_publisher_;
     const std::shared_ptr<stella_vslam::publish::map_publisher> map_publisher_;
     bool publish_points_ = true;
+    bool publish_dense_points_ = true;
     std::unique_ptr<std::unordered_map<unsigned int, double>> keyframe_hash_map_;
     std::unique_ptr<std::unordered_map<unsigned int, double>> point_hash_map_;
+    std::unique_ptr<std::unordered_map<unsigned int, double>> dense_point_hash_map_;
 
     double current_pose_hash_ = 0;
     int frame_hash_ = 0;
@@ -61,6 +64,7 @@ private:
     std::string serialize_as_protobuf(const std::vector<std::shared_ptr<stella_vslam::data::keyframe>>& keyfrms,
                                       const std::vector<std::shared_ptr<stella_vslam::data::landmark>>& all_landmarks,
                                       const std::set<std::shared_ptr<stella_vslam::data::landmark>>& local_landmarks,
+                                      const std::vector<std::shared_ptr<stella_vslam::data::dense_point>>& all_dense_points,
                                       const stella_vslam::Mat44_t& current_camera_pose);
 
     std::string base64_encode(unsigned char const* bytes_to_encode, unsigned int in_len);
