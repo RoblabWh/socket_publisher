@@ -37,7 +37,9 @@ public:
 
     std::string serialize_map_diff();
 
-    std::string serialize_latest_frame(const unsigned int image_quality_);
+    std::string serialize_frame(const cv::Mat &image, const unsigned int image_quality_);
+    std::string serialize_keyframe(const unsigned int id, const unsigned int image_quality);
+    std::string serialize_latest_frame(const unsigned int image_quality);
 
     static std::string serialized_reset_signal_;
 

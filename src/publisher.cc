@@ -29,17 +29,17 @@ void publisher::run() {
     is_paused_ = false;
 
     const auto serialized_reset_signal = data_serializer::serialized_reset_signal_;
-    emit_map(serialized_reset_signal);
+    transmit("map_publish", serialized_reset_signal);
 
     while (true) {
         const auto t0 = std::chrono::system_clock::now();
 
         const auto serialized_map_data = data_serializer_->serialize_map_diff();
-        emit_map(serialized_map_data);
+        transmit("map_publish", serialized_map_data);
 
         const auto serialized_frame_data = data_serializer_->serialize_latest_frame(image_quality_);
         if (!serialized_frame_data.empty()) {
-            client_->emit("frame_publish", serialized_frame_data);
+            transmit("frame_publish", serialized_frame_data);
         }
 
         // sleep until emitting interval time is past
@@ -65,14 +65,14 @@ void publisher::run() {
     terminate();
 }
 
-void publisher::emit_map(const std::string& message) {
+void publisher::transmit(const std::string &tag, const std::string& message) {
     if (!message.empty()) {
-        client_->emit("map_publish", "START_TRANSMISSION");
+        client_->emit(tag, "START_TRANSMISSION");
         for (size_t send_num = 0; send_num < message.size(); send_num += SEND_SIZE)
         {
-            client_->emit("map_publish", message.substr(send_num, SEND_SIZE));
+            client_->emit(tag, message.substr(send_num, SEND_SIZE));
         }
-        client_->emit("map_publish", "FINISH_TRANSMISSION");
+        client_->emit(tag, "FINISH_TRANSMISSION");
     }
 }
 
@@ -88,6 +88,13 @@ void publisher::callback(const std::string& message) {
     }
     else if (message == "terminate") {
         request_terminate();
+    }
+    else if (message.substr(0, 12) == "getKeyframe_") {
+        unsigned int id = std::stoul(message.substr(12));
+        const auto serialized_frame_data = data_serializer_->serialize_keyframe(id, image_quality_);
+        if (!serialized_frame_data.empty()) {
+            transmit("keyframe_publish", serialized_frame_data);
+        }
     }
 }
 

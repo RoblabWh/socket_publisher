@@ -73,14 +73,31 @@ std::string data_serializer::serialize_map_diff() {
     return serialize_as_protobuf(keyframes, all_landmarks, local_landmarks, all_dense_points, current_camera_pose);
 }
 
-std::string data_serializer::serialize_latest_frame(const unsigned int image_quality) {
-    const auto image = frame_publisher_->draw_frame();
+std::string data_serializer::serialize_frame(const cv::Mat &image, const unsigned int image_quality) {
     std::vector<uchar> buf;
     const std::vector<int> params{static_cast<int>(cv::IMWRITE_JPEG_QUALITY), static_cast<int>(image_quality)};
     cv::imencode(".jpg", image, buf, params);
     const auto char_buf = reinterpret_cast<const unsigned char*>(buf.data());
     const std::string base64_serial = base64_encode(char_buf, buf.size());
     return base64_serial;
+}
+
+std::string data_serializer::serialize_latest_frame(const unsigned int image_quality) {
+    const auto image = frame_publisher_->draw_frame();
+    return serialize_frame(image, image_quality);
+}
+
+std::string data_serializer::serialize_keyframe(const unsigned int id, const unsigned int image_quality) {
+    std::vector<std::shared_ptr<stella_vslam::data::keyframe>> keyframes;
+    map_publisher_->get_keyframes(keyframes);
+    cv::Mat image;
+    for (const auto &keyfrm : keyframes) {
+        if (keyfrm->id_ == id) {
+            image = keyfrm->img_;
+            break;
+        }
+    }
+    return serialize_frame(image, image_quality);
 }
 
 std::string data_serializer::serialize_as_protobuf(const std::vector<std::shared_ptr<stella_vslam::data::keyframe>>& keyfrms,
