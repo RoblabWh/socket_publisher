@@ -67,7 +67,8 @@ private:
                                       const std::vector<std::shared_ptr<stella_vslam::data::landmark>>& all_landmarks,
                                       const std::set<std::shared_ptr<stella_vslam::data::landmark>>& local_landmarks,
                                       const std::vector<std::shared_ptr<stella_vslam::data::dense_point>>& all_dense_points,
-                                      const stella_vslam::Mat44_t& current_camera_pose);
+                                      const stella_vslam::Mat44_t& current_camera_pose,
+                                      const float progress);
 
     std::string base64_encode(unsigned char const* bytes_to_encode, unsigned int in_len);
 };

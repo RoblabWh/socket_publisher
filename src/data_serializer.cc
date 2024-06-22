@@ -69,8 +69,9 @@ std::string data_serializer::serialize_map_diff() {
         return "";
     }
     current_pose_hash_ = pose_hash;
+    float progress = map_publisher_->get_progress();
 
-    return serialize_as_protobuf(keyframes, all_landmarks, local_landmarks, all_dense_points, current_camera_pose);
+    return serialize_as_protobuf(keyframes, all_landmarks, local_landmarks, all_dense_points, current_camera_pose, progress);
 }
 
 std::string data_serializer::serialize_frame(const cv::Mat &image, const unsigned int image_quality) {
@@ -104,11 +105,15 @@ std::string data_serializer::serialize_as_protobuf(const std::vector<std::shared
                                                    const std::vector<std::shared_ptr<stella_vslam::data::landmark>>& all_landmarks,
                                                    const std::set<std::shared_ptr<stella_vslam::data::landmark>>& local_landmarks,
                                                    const std::vector<std::shared_ptr<stella_vslam::data::dense_point>>& all_dense_points,
-                                                   const stella_vslam::Mat44_t& current_camera_pose) {
+                                                   const stella_vslam::Mat44_t& current_camera_pose,
+                                                   const float progress) {
     map_segment::map map;
     auto message = map.add_messages();
     message->set_tag("0");
     message->set_txt("only map data");
+    message->set_tag("progress");
+    message->set_txt(std::to_string(progress));
+
 
     std::forward_list<map_segment::map_keyframe*> allocated_keyframes;
 
