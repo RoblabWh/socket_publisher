@@ -20,6 +20,7 @@ publisher::publisher(const YAML::Node& yaml_node,
         frame_publisher, map_publisher,
         yaml_node["publish_points"].as<bool>(true),
         yaml_node["publish_dense_points"].as<bool>(true)));
+        publish_frames_ = yaml_node["publish_frames"].as<bool>(true);
 
     client_->set_signal_callback(std::bind(&publisher::callback, this, std::placeholders::_1));
 }
@@ -36,10 +37,12 @@ void publisher::run() {
 
         const auto serialized_map_data = data_serializer_->serialize_map_diff();
         transmit("map_publish", serialized_map_data);
-
-        const auto serialized_frame_data = data_serializer_->serialize_latest_frame(image_quality_);
-        if (!serialized_frame_data.empty()) {
-            transmit("frame_publish", serialized_frame_data);
+	
+	if(publish_frames_) {
+            const auto serialized_frame_data = data_serializer_->serialize_latest_frame(image_quality_);
+            if (!serialized_frame_data.empty()) {
+                transmit("frame_publish", serialized_frame_data);
+            }
         }
 
         // sleep until emitting interval time is past

@@ -41,6 +41,7 @@ private:
     const std::shared_ptr<stella_vslam::system> system_;
     const unsigned int emitting_interval_;
     const unsigned int image_quality_;
+    bool publish_frames_;
 
     std::unique_ptr<socket_client> client_;
     std::unique_ptr<data_serializer> data_serializer_;
